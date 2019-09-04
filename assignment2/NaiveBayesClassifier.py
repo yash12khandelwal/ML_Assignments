@@ -20,16 +20,47 @@ def prepare_dataframe(df):
 
     return df
 
-# utility function to predict the labels
-def predict(df, target, attributes, test):
+# utility function to create a dictionary of all the probablities from training data
 
-    # list of classes in the target set [0 , 1]
+# laplacian smoothing has been used while calculating the conditional probablities
+# in laplacian smoothing we create one fake example of all the possible values an attribute can take
+# so for every example it increases the value of numerator by 1 and the value of denominator by the no. of fake examples generated
+# this is used so that while calculating the probablities, case doesnt occur in which the conditional probablity becomes 0 which will lead 
+# the product of probablities becoming 0 
+def train(df, target, attributes):
+
     classes = list(set(df[target[0]]))
-    
-    # list to store the predicted labels
+
+    # dictionary to store the probablities
+    dictionary = {}
+
+    for p in attributes:
+        
+        temp = list(set(df[p]))
+        temp1 = {}
+        
+        for k in temp:
+            temp3 = []
+            for j in classes:
+                
+                numerator = (df[df[p] == k].index & df[df[target[0]] == j].index).shape[0] + 1
+                denominator = df[df[target[0]] == int(j)].shape[0] + len(set(df[p]))
+                probability = numerator / denominator
+                
+                temp3.append(probability)
+
+            temp1[k] = temp3
+
+        dictionary[p] = temp1
+
+    return dictionary
+
+# utility function to predict the labels
+def predict(df, target, attributes, test, dictionary):
+
+    classes = list(set(df[target[0]]))
     temp = []
 
-    # iterating over all the test dataset
     for k in range(len(test)):
 
         # declaring the probablity of previous class as 0
@@ -44,15 +75,10 @@ def predict(df, target, attributes, test):
             # caluclating the probablity of current class, by multiplying the probablity of each independent attribute
             for i in attributes:
 
-                # numerator is the count of intersection of target class and test element attribute
-                numerator = (df[df[i] == test[i][k]].merge(df[df[target[0]] == int(j)])).shape[0] + 1
-                
-                # denominator is the count of the target class in the total dataset
-                denominator = df[df[target[0]] == int(j)].shape[0] + len(classes)
-                probability *= (numerator / denominator)
+                probability *= dictionary[i][test[i][k]][j]
 
             # probablity of target class is also multiplied
-            probability *= (df[df[target[0]] == int(j)].shape[0] / df.shape[0])
+            probability *= (df[df[target[0]] == j].shape[0] / df.shape[0])
             
             # if probablity of current class is more than probablity of previous class then the label is class giving more probablity
             if probability > prev_probability:
@@ -91,12 +117,18 @@ def main():
     # features
     attributes = df.columns.values[1:]
 
-    prediction = predict(df, target, attributes, test)
+    dictionary = train(df, target, attributes)
 
-    print("Predicted classes: ", prediction)
-    accuracy = get_accuracy(prediction, test[target[0]])
+    train_prediction = predict(df, target, attributes, df, dictionary)
 
-    print("Accuracy: ", accuracy, "%")
+    test_prediction = predict(df, target, attributes, test, dictionary)
+    print("Test example predicted classes: ", test_prediction)
+
+    train_accuracy = get_accuracy(train_prediction, df[target[0]])
+    print("Train Accuracy: ", train_accuracy, "%")
+
+    test_accuracy = get_accuracy(test_prediction, test[target[0]])
+    print("Test Accuracy: ", test_accuracy, "%")
 
 if __name__=="__main__":
     main()

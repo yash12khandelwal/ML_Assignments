@@ -1,6 +1,6 @@
 # 17CH10051
 # Yash Khandelwal
-# Assignment Number 1
+# Assignment Number 3
 # python3 <program name>
 
 import pandas as pd
@@ -100,6 +100,7 @@ def tree(current_data, attributes, root):
 def initialize_weight(df):
 	df['weight'] = [1/len(df)]*len(df)
 	df['check'] = ['correct']*len(df)
+
 	return df
 
 def calculate_total_error(node, df, attributes):
@@ -108,11 +109,8 @@ def calculate_total_error(node, df, attributes):
 		temp = tree_predict(node, list(df.iloc[i, :4]), attributes)
 		if df.iloc[i,3] == temp:
 			error += 0
-			df.iloc[i,5] = 'correct'
 		else:
 			error += df.iloc[i, 4]
-			df.iloc[i,5] = 'incorrect'
-
 	return error
 
 def calculate_significance(total_error):
@@ -138,7 +136,7 @@ def adaboost(weighted_data, attributes, no_of_rounds):
         tree_dict[i] = Node("data")
 
         if i >= 1:
-            data_dict[i] = data_dict[i - 1].sample(n = len(weighted_data), weights= 'weight', random_state = 1)
+            data_dict[i] = data_dict[i - 1].sample(n = len(weighted_data),replace = True, weights= 'weight', random_state = 1)
 
         tree_dict[i] = tree(data_dict[i].iloc[:,:4], attributes[:], tree_dict[i])
 
@@ -146,8 +144,6 @@ def adaboost(weighted_data, attributes, no_of_rounds):
         significance_dict[i] = calculate_significance(total_error)
 
         data_dict[i] = update_weights(data_dict[i], significance_dict[i])
-
-        print(str(i + 1), "TREE CREATED")
 
     return (data_dict, significance_dict, tree_dict)
 
@@ -160,17 +156,6 @@ def traverse(node, path = []):
         for child in node.child:
             traverse(child, path)
         path.pop()
-
-def tree_predict(node, row, attributes):
-    j = 0
-    while j < len(attributes):
-        for i in node.child:
-            if i.key in row:
-                node = i
-                break
-        j += 1
-
-    return node.child[0].key
 
 def get_accuracy(prediction, labels):
     count = 0
@@ -206,31 +191,46 @@ def get_results(test_data, tree_dict, significance_dict, attributes):
 
     return results
 
+def tree_predict(node, row, attributes):
+    # print(row)
+
+    j = 0
+    while j <= len(attributes):
+        # print("#########", len(node.child))
+        k = 0
+
+        if node.child[k].key == 'yes' or node.child[k].key == 'no':
+            return node.child[k].key
+
+        while k < len(node.child):
+
+            if node.child[k].key == 'yes' or node.child[k].key == 'no':
+                return node.child[k].key
+
+            if node.child[k].key in row:
+                node = node.child[k]
+                break
+            else:
+                k += 1
+        j += 1
+
 # main function to read the data and call other utility functions
 def main():
-    data = pd.read_csv("data3_19.csv")
-    test_data = pd.read_csv("test3_19.csv")
+	data = pd.read_csv("data3_19.csv")
+	test_data = pd.read_csv("test3_19.csv", header = None)
 
-    attributes = list(data.columns.values)
+	attributes = list(data.columns.values)
 
-    target = attributes[-1]
-    attributes = attributes[:-1]
+	target = attributes[-1]
+	attributes = attributes[:-1]
 
-    weighted_data = initialize_weight(data)
-    print("############### TRAINING STARTED ###############")
-    data_dict, significance_dict, tree_dict = adaboost(weighted_data, attributes[:], 3)
-    print("############### TRAINING COMPLETED ###############")
+	weighted_data = initialize_weight(data)
+	print("################ Training Started #################")
+	data_dict, significance_dict, tree_dict = adaboost(weighted_data, attributes[:], 3)
+	print("################ Training Completed #################")
 
-    results = get_results(data, tree_dict, significance_dict, attributes)
-    print("TRAIN ACCURACY : ", get_accuracy(results, list(data.iloc[:, 3])))
-
-    results = get_results(test_data, tree_dict, significance_dict, attributes)
-    print("############### TESTING COMPLETED ###############")
-
-    print("TEST ACCURACY : ", get_accuracy(results, list(test_data.iloc[:, 3])))
+	results = get_results(test_data, tree_dict, significance_dict, attributes)
+	print("\n", "TEST ACCURACY: ", get_accuracy(results, list(test_data.iloc[:, 3])))
 
 if __name__ == "__main__":
     main()
-
-
-
